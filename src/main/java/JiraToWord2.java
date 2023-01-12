@@ -2,7 +2,8 @@ import java.io.*;
 import java.math.BigInteger;
 import java.net.URL;
 import java.net.HttpURLConnection;
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 import org.apache.poi.xwpf.usermodel.*;
 import org.json.simple.JSONArray;
@@ -11,7 +12,7 @@ import org.json.simple.parser.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 
 
-public class JiraToWord {
+public class JiraToWord2 {
 
     public static String loginResponse = "";
     public static String jSessionID = "";
@@ -21,22 +22,16 @@ public class JiraToWord {
     public static String biExportURL = "atm/1.0/testcase/";
     public static String testCaseURL = "atm/1.0/testcase/search?query=folder%20=%20/Sandbox";
 
-    public static String testResultUrl1 = "atm/1.0/testcase/";
-    public static String testResultUrl2 = "/testresult/latest";
+    public static String testResultUrl = "atm/1.0/testcase/CFRVIA-T59/testresult/latest";
     public static String loginUserName = "uwagstev";
     public static String loginPassWord = "Uwag!Stev!0205";
     public static boolean errorsOccurred = false;
     private static String[] testExpectedResults;
     private static String[] testDescriptions;
     private static String[] testcases;
-    private static String[] descriptionsArray;
-    private static String[] expectedResArray;
-    private static HashMap<String, String> linkedHashMap = new HashMap<>(1000);
-    private static JSONArray scriptResults;
-
-    private static boolean[] hasTestResult= new boolean[1000];
 
     public static void main(String[] args) throws Exception {
+
 
         if(!errorsOccurred)
         {
@@ -52,23 +47,16 @@ public class JiraToWord {
         } else {
             System.out.println("Jsession could not be parsed");
         }
-
         if(!errorsOccurred)
         {
-             testcases = new JiraToWord().getTestCases();
-                for (int i = 0; i < testcases.length; ++i) {
-                        if(checkForTestResults(testcases[i])){
-                            System.out.println(" \n This Test contains a Testresult is " + checkForTestResults(testcases[i]));
-                            hasTestResult[i] = true;
-                            jsonData[i] = getJsonData(baseURL,biExportURL+testcases[i],jSessionID);
-                        } else {
-                            System.out.println(" \n This Test does not contain a Testresult so..");
-                            hasTestResult[i] = false;
-                            jsonData[i] = getJsonData(baseURL,biExportURL+testcases[i],jSessionID);
-                          }
+            testcases = new JiraToWord2().getTestCases();
+            for (int i = 0; i < testcases.length; i++) {
+
+                System.out.println(getJsonData(baseURL, testResultUrl, jSessionID));
+                jsonData[i] = getJsonData(baseURL, biExportURL+testcases[i], jSessionID);
+                System.out.println(i);
 
                 if(jsonData[i] == "ERROR") { errorsOccurred = true; }
-
             }
 
         } else {
@@ -76,7 +64,9 @@ public class JiraToWord {
         }
 
         if(!errorsOccurred){
-       new JiraToWord().createDoc();
+
+            new JiraToWord2().createDoc();
+
         }
 
         if(!errorsOccurred)
@@ -113,7 +103,7 @@ public class JiraToWord {
             // Create JSON post data
 
             input = "{\"username\":\"" + loginUserName + "\", \"password\":\"" + loginPassWord + "\"}";
-
+            System.out.println("Input:"+ input);
 
             // Send our request
             os = conn.getOutputStream();
@@ -127,7 +117,8 @@ public class JiraToWord {
                 while((output = br.readLine()) != null){
                     loginResponse += output;
                 }
-
+                System.out.println(conn.getResponseMessage());
+                System.out.println(conn.getContentEncoding());
                 conn.disconnect();
             } else {
                 System.out.println(conn.getResponseCode()+conn.getResponseMessage());
@@ -192,13 +183,13 @@ public class JiraToWord {
         for (int i = 0; i < json.size(); i++) {
             JSONObject jsonObject = (JSONObject)json.get(i);
             testCases[i] = (String) jsonObject.get("key");
-            System.out.println("GetTestcase Method got Testcase: " + i+1 +":" + testCases[i]);
+            System.out.println("Testcase Nr." + i+1 +":" + testCases[i]);
         }
 
         return testCases;
     }
 
-    public static String getJsonData(String baseURL, String biExportURL, String jSessionID) throws IOException, ParseException {
+    public static String getJsonData(String baseURL, String biExportURL, String jSessionID) {
         String jsonData = "";
         try {
             URL url = new URL(baseURL + biExportURL);
@@ -221,7 +212,8 @@ public class JiraToWord {
             System.out.println("Error in getJsonData: " + ex.getMessage());
             jsonData = "ERROR";
         }
-        System.out.println("\n The whole jsonData received:");
+        System.out.println("\njsonData:");
+        System.out.println(jsonData);
 
         //deal with Special Characters
         jsonData = jsonData.replaceAll("amp;","");
@@ -231,18 +223,50 @@ public class JiraToWord {
         jsonData = jsonData.replaceAll("<[a-z]([^>])*>|</[a-z]([^>])*>", "");
 
         System.out.println(jsonData);
-
         return jsonData;
     }
 
-    public LinkedHashMap<String,String> jsonToTxt(String jsonData, String key) throws IOException, ParseException {
+    public LinkedHashMap<String,String> jsonToTxt(String jsonData) throws IOException, ParseException {
 
-        LinkedHashMap<String,String> linkedHashMap = new LinkedHashMap<>();
+
+        System.out.println("Jsondata is "+jsonData);
 
         // Make JSON Object from JSON String
         JSONParser parser = new JSONParser();
         JSONObject json = (JSONObject) parser.parse(jsonData);
 
+        // Get Values From Keys
+        LinkedHashMap<String,String> map = new LinkedHashMap<>(1000);
+
+        String name = json.get("name").toString();
+        map.put("projectName",name);
+
+        String createdOn = json.get("createdOn").toString();
+        map.put("createdOn",createdOn);
+
+        String objective = json.get("objective").toString();
+        map.put("objective",objective);
+
+        String priority = json.get("priority").toString();
+        map.put("priority",priority);
+
+        String precondition = json.get("precondition").toString();
+        map.put("precondition",precondition);
+
+        String owner = json.get("owner").toString();
+        map.put("owner",owner);
+
+        String updatedBy = json.get("updatedBy").toString();
+        map.put("updatedBy",updatedBy);
+
+        String status = json.get("status").toString();
+        map.put("status",status);
+
+        String folder = json.get("folder").toString();
+        map.put("folder",folder);
+
+        String estTime = json.get("estimatedTime").toString();
+        map.put("estimatedTime",estTime);
 
         //Get Values from JSONArrays
         JSONObject testScript = (JSONObject) json.get("testScript");
@@ -252,25 +276,19 @@ public class JiraToWord {
         testExpectedResults = new String[steps.size()];
         testDescriptions = new String[steps.size()];
 
-        putValuesInMapWithoutResult(linkedHashMap, json);
-
-        int tmpIndex;
-        for (int i = 0; i < testcases.length; i++) {
-            if(testcases[i].equals(key)){
-                tmpIndex = i;
-                if(hasTestResult[tmpIndex]) {
-                    testDescriptions = getDescriptions(key);
-                    testExpectedResults = getExpectedRes(key);
-                } else {
-                    fillDescriptionAndExpectedResNorm(linkedHashMap,steps, stepsArray);
-                }
-            }
+        for (int i = steps.size()-1; i >= 0; i--) {
+            stepsArray[i] = (JSONObject) steps.get(i);
+            testExpectedResults[i] = stepsArray[i].get("expectedResult").toString();
+            map.put("Erwartetes Testergebnis",testExpectedResults[i]);
+            testDescriptions[i] = stepsArray[i].get("description").toString();
+            map.put("Testbeschreibung",testDescriptions[i]);
         }
+
 
 
         // Write to txt.file
         FileWriter file = new FileWriter("/Users/uwagstev/Documents/json.txt");
-        for (String line : linkedHashMap.keySet()) {
+        for (String line : map.keySet()) {
             line += "\n";
             file.write(line);
         }
@@ -278,84 +296,38 @@ public class JiraToWord {
         file.flush();
         file.close();
 
-        return linkedHashMap;
-    }
-
-    private static void putValuesInMapWithoutResult(LinkedHashMap<String, String> linkedHashMap, JSONObject json) {
-        String name = json.get("name").toString();
-        linkedHashMap.put("projectName", name);
-
-        String createdOn = json.get("createdOn").toString();
-        linkedHashMap.put("createdOn", createdOn);
-
-        String objective = json.get("objective").toString();
-        linkedHashMap.put("objective", objective);
-
-        String priority = json.get("priority").toString();
-        linkedHashMap.put("priority", priority);
-
-        String precondition = json.get("precondition").toString();
-        linkedHashMap.put("precondition", precondition);
-
-        String owner = json.get("owner").toString();
-        linkedHashMap.put("owner", owner);
-
-        String updatedBy = json.get("updatedBy").toString();
-        linkedHashMap.put("updatedBy", updatedBy);
-
-        String status = json.get("status").toString();
-        linkedHashMap.put("status", status);
-
-        String folder = json.get("folder").toString();
-        linkedHashMap.put("folder", folder);
-
-        String estTime = json.get("estimatedTime").toString();
-        linkedHashMap.put("estimatedTime", estTime);
+        return map;
     }
 
 
-    private static void fillDescriptionAndExpectedResNorm(LinkedHashMap<String, String> linkedHashMap, JSONArray steps, JSONObject[] stepsArray) {
-        for (int i = steps.size() - 1; i >= 0; i--) {
-
-            stepsArray[i] = (JSONObject) steps.get(i);
-            testExpectedResults[i] = stepsArray[i].get("expectedResult").toString();
-            testDescriptions[i] = stepsArray[i].get("description").toString();
-
-            linkedHashMap.put("Erwartetes Testergebnis", testExpectedResults[i]);
-            linkedHashMap.put("Testbeschreibung", testDescriptions[i]);
-        }
-    }
 
     public void createDoc() throws IOException, ParseException {
         String fileName = "c:/Users/uwagstev/Documents/word.docx";
         try (XWPFDocument doc = new XWPFDocument()) {
-        for (int i = 0; i < testcases.length; i++) {
+            for (int i = 0; i < testcases.length; i++) {
+                HashMap<String, String> map = new JiraToWord2().jsonToTxt(jsonData[i]);
 
-            linkedHashMap = new JiraToWord().jsonToTxt(jsonData[i],testcases[i]);
+                createTitle(map, doc);
 
-            System.out.println("The Map contains following entries from the Request "+linkedHashMap.entrySet());
+                createSubtitleWithName(map, doc);
 
-            createTitle(linkedHashMap, doc);
+                createTestGoals(map, doc);
 
-            createSubtitleWithName(linkedHashMap, doc);
+                createEstimatedTime(map, doc);
 
-            createTestGoals(linkedHashMap, doc);
+                createPreconditions(map, doc);
 
-            createEstimatedTime(linkedHashMap, doc);
+                //Create enumeration for Preconditions
 
-            createPreconditions(linkedHashMap, doc);
+                createTable(doc);
 
-            //Create enumeration for Preconditions
+                doc.createParagraph().createRun().addBreak();
 
-            createTable(doc);
+                createStatusTable(doc);
 
-            doc.createParagraph().createRun().addBreak();
+                doc.createParagraph().createRun().addBreak(BreakType.PAGE);
 
-            createStatusTable(doc);
-
-            doc.createParagraph().createRun().addBreak(BreakType.PAGE);
-
-        }
+            }
 
             // save it to .docx file
             try (FileOutputStream out = new FileOutputStream(fileName)) {
@@ -616,56 +588,6 @@ public class JiraToWord {
         statusTable.setInsideHBorder(XWPFTable.XWPFBorderType.OUTSET,14,0,"000000");
     }
 
-    public static String[] getDescriptions(String key) throws IOException, ParseException {
-
-        String jsonData = getJsonData(baseURL,testResultUrl1 + key + testResultUrl2,jSessionID);
-
-        JSONObject jsonObject = (JSONObject) new JSONParser().parse(jsonData);
-
-        scriptResults = (JSONArray) jsonObject.get("scriptResults");
-        descriptionsArray = new String[scriptResults.size()];
-        expectedResArray = new String[scriptResults.size()];
-
-        for (int i = 0; i < scriptResults.size() ; i++) {
-            JSONObject descriptionObj = (JSONObject) scriptResults.get(i);
-            String description = (String) descriptionObj.get("description");
-            descriptionsArray[i]=description;
-            System.out.println("The Get Descriptions Method got: "+descriptionsArray[i]);
-        }
-
-        return descriptionsArray;
-    }
-
-    public static String[] getExpectedRes(String key) throws IOException, ParseException {
-
-        String jsonData = getJsonData(baseURL,testResultUrl1 + key + testResultUrl2,jSessionID);
-
-        JSONObject jsonObject = (JSONObject) new JSONParser().parse(jsonData);
-
-        JSONArray scriptResults = (JSONArray) jsonObject.get("scriptResults");
-
-        for (int i = 0; i < scriptResults.size() ; i++) {
-            JSONObject expectedObj = (JSONObject) scriptResults.get(i);
-            String expectedRes = expectedObj.get("expectedResult").toString();
-            expectedResArray[i] = expectedRes;
-            System.out.println("The GetExpectedRes Method got: "+expectedResArray[i]);
-        }
-
-        return expectedResArray;
-    }
-
-    public static boolean   checkForTestResults(String key) throws IOException {
-
-            URL url = new URL(baseURL + testResultUrl1 + key + testResultUrl2);
-            String cookie = "JSESSIONID=" + jSessionID;
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setRequestProperty("Autorization", "Basic dXdhZ3N0ZXY6VXdhZyFTdGV2ITAyMDU=");
-            conn.setRequestProperty("Cookie", cookie);
-
-        return conn.getResponseCode() == 200;
-    }
 }
 
 
